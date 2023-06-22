@@ -1,0 +1,1 @@
+from .chessy import ChessY
