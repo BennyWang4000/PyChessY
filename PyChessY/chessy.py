@@ -1,6 +1,11 @@
-import numpy as np
+# %%
 from .utils.structure import *
 from .utils.nodes import Nodes
+import numpy as np
+from typing import List
+from math import ceil
+
+# %%
 
 
 class ChessY:
@@ -149,8 +154,6 @@ class ChessY:
         )
 
     def getMovesFromGameGPN(self, pgn):
-        def removeNotation(pgn):
-            pass
         moves, mwb = [], []
         for i, move in enumerate(pgn.split()[1:]):
             if (i % 3 == 0):
@@ -167,7 +170,80 @@ class ChessY:
                     moves.append(mwb)
         return moves
 
+    def getFlatMovesFromGameGPN(self, pgn):
+        '''get one-dimension list for stockfish further process
+
+        '''
+        moves, mw, mb = [], '', ''
+        for i, move in enumerate(pgn.split()[1:]):
+            if (i % 3 == 0):
+                mw = move
+            elif (i % 3 == 1):
+                mb = move
+            elif (i % 3 == 2):
+                moves.append(''.join((mw, mb)))
+                mw, mb = '', ''
+            if (i == len(pgn.split()) - 2):
+                moves.append(''.join((mw, mb)))
+        return moves
+
+    def getFENfromPositions(self, positions: List[Position]):
+        fen_lst = []
+        halfmove = 0
+        for i, position in enumerate(positions):
+            places = sorted(position.places, key=lambda x: x[0])
+            rank_lst = [[], [], [], [], [], [], [], []]
+            for r in range(8):
+                sub_fen, space = '', 0
+                for p in range(1, 9):
+                    if len(places) > 0:
+                        if places[0][0] == r * 8 + p:
+                            if space > 0:
+                                sub_fen += str(space)
+                            sub_fen += p2fen[places[0][1]]
+                            places.pop(0)
+                            space = 0
+                        else:
+                            space += 1
+                    else:
+                        space += 1
+                    if p == 8 and space > 0:
+                        sub_fen += str(space)
+                rank_lst[r] = sub_fen
+            fen = ['/'.join(rank_lst[::-1]),
+                   'b' if i % 2 > 0 else 'w',]
+
+            is_castling = ''
+            if position.castling.wKside or position.castling.wQside:
+                is_castling += 'KQ'
+            if position.castling.bKside or position.castling.bQside:
+                is_castling += 'kq'
+            if len(is_castling):
+                fen.append(is_castling)
+            else:
+                fen.append('-')
+
+            if position.enpassant != 0:
+                fen.append(f2f[file(position.enpassant)] +
+                           r2r[rank(position.enpassant)])
+            else:
+                fen.append('-')
+
+            if position.halfmove:
+                halfmove += 1
+            else:
+                halfmove = 0
+
+            fen.append(str(halfmove))
+            fen.append(str(ceil((i + 1) / 2)))
+
+            fen_lst.append(' '.join(fen))
+        return fen_lst
+
     def getPositionsFromGamePGN(self, moves):
+        return self.getPositionFromGameMoves(moves)
+
+    def getPositionFromGameMoves(self, moves):
         positions, places, m, w_move, b_move, dep_node, arr_node, passant_move, castling_move, i = [
         ], '', '', [], [], '', '', '', '', ''
 
@@ -293,6 +369,7 @@ class ChessY:
                     filter(lambda x: x != [dep_node, PieceType.wK], places))
                 places.append([arr_node, PieceType.wK])
                 castling_move.wKside, castling_move.wQside = False, False
+
             elif (w_move.piece == 'Q'):
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wQ]
                 dep_node = getDepartureNode(
@@ -300,12 +377,16 @@ class ChessY:
                 places = list(
                     filter(lambda x: x != [dep_node, PieceType.wQ], places))
                 places.append([arr_node, PieceType.wQ])
+
             elif (w_move.piece == 'R'):
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wR]
+
                 dep_node = getDepartureNode(
                     arr_node, andl, PieceType.wR, w_move.disambiguation, w_move.capture, False, False, positions[-1])
+
                 places = list(
                     filter(lambda x: x != [dep_node, PieceType.wR], places))
+
                 places.append([arr_node, PieceType.wR])
 
                 if (castling_move.wKside or castling_move.wQside):
@@ -356,10 +437,16 @@ class ChessY:
             # append position to positions list
             positions.append(Position(
                 enpassant=passant_move,
-                castling=castling_move,
+                castling=Castling(
+                    castling_move.wKside,
+                    castling_move.wQside,
+                    castling_move.bKside,
+                    castling_move.bQside,
+                ),
                 check=w_move.check,
                 checkmate=w_move.checkmate,
-                places=places
+                places=places,
+                halfmove=False if w_move.capture or w_move.piece == 'P' else True
             ))
 
             # * process move of black piece
@@ -460,20 +547,16 @@ class ChessY:
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bN]
                 dep_node = getDepartureNode(
                     arr_node, andl, PieceType.bN, b_move.disambiguation, b_move.capture, False, False, positions[-1])
-
                 places = list(
                     filter(lambda x: x != [dep_node, PieceType.bN], places))
                 places.append([arr_node, PieceType.bN])
+
             elif (b_move.piece == 'P'):
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bP]
                 dep_node = getDepartureNode(
                     arr_node, andl, PieceType.bP, b_move.disambiguation, b_move.capture, True if ((rank(arr_node) == 5) and (not any(piece[0] == arr_node+8 for piece in positions[-1].places))) else False, b_move.enpassant, positions[-1])
                 places = list(
                     filter(lambda x: x != [dep_node, PieceType.bP], places))
-
-                if self.isDebug:
-                    print('ar:\t', True if ((rank(arr_node) == 5) and (
-                        not any(piece[0] == arr_node+8 for piece in positions[-1].places))) else False)
                 places.append([arr_node, PieceType.bP])
                 if (rank(dep_node) == 7 and rank(arr_node) == 5):
                     # TODO minus one or not
@@ -491,10 +574,16 @@ class ChessY:
             # append position to positions list
             positions.append(Position(
                 enpassant=passant_move,
-                castling=castling_move,
+                castling=Castling(
+                    castling_move.wKside,
+                    castling_move.wQside,
+                    castling_move.bKside,
+                    castling_move.bQside,
+                ),
                 check=b_move.check,
                 checkmate=b_move.checkmate,
-                places=places
+                places=places,
+                halfmove=False if b_move.capture or b_move.piece == 'P' else True
             ))
 
         return positions
@@ -543,20 +632,18 @@ class ChessY:
             print('-----edges-running-----')
 
         # get white/black/all occupied nodes
+        # get node with white/black King
         for p in position.places:
             if p[1] in w_pieces:
                 w_nodes.append(p[0])
+                if p[1] == PieceType.wK:
+                    w_Knode = p[0]
             else:
                 b_nodes.append(p[0])
+                if p[1] == PieceType.bK:
+                    b_Knode = p[0]
         a_nodes.extend(w_nodes)
         a_nodes.extend(b_nodes)
-
-        # get node with white/black King
-        for p in position.places:
-            if p[1] == PieceType.wK:
-                w_Knode = p[0]
-            if p[1] == PieceType.bK:
-                b_Knode = p[0]
 
         # get all potential edges for white/black pieces
         w_edges = self.getTargetEdgesFromPosition(
@@ -675,24 +762,24 @@ class ChessY:
         nodes = Nodes(side)
 
         # NOTE
-        # wn -> ma_n
-        # bn -> op_n
+        # wn -> ma_n, main nodes
+        # bn -> op_n, opposite nodes
 
         if len(position.places) <= 0:
             return Position
 
         # get white/black/all occupied nodes
         for pos in position.places:
-            if pos[0] in w_pieces:
+            if pos[1] in w_pieces:
                 if side == 'w':
-                    main_nodes.append(pos[1])
+                    main_nodes.append(pos[0])
                 elif side == 'b':
-                    oppo_nodes.append(pos[1])
-            elif pos[0] in b_pieces:
-                if side == 'p':
-                    main_nodes.append(pos[1])
+                    oppo_nodes.append(pos[0])
+            elif pos[1] in b_pieces:
+                if side == 'b':
+                    main_nodes.append(pos[0])
                 elif side == 'w':
-                    oppo_nodes.append(pos[1])
+                    oppo_nodes.append(pos[0])
 
         a_nodes.extend(main_nodes)
         a_nodes.extend(oppo_nodes)
@@ -711,7 +798,7 @@ class ChessY:
             elif (p in [p2p['Q'], p2p['R'], p2p['B']]):
                 for direction in nodes.mQueen if p == p2p['Q'] else (nodes.mRook if p == p2p['R'] else nodes.mBishop):
 
-                    tnt, tni = n, True
+                    tnt, tni = 0, True
                     for tnt in direction[n]:
                         if tnt in main_nodes:
                             tni = False
@@ -720,8 +807,15 @@ class ChessY:
                             tni = True
                             break
 
-                    tn.extend([node for node in direction[n] if node not in (
-                        direction[tnt] if (tni or atni) else direction[tnt] + tnt)])
+                    if tni or atni:
+                        tn.extend([node for node in direction[n]
+                                   if node not in direction[tnt]])
+                    else:
+                        tn.extend([node for node in direction[n]
+                                   if node not in direction[tnt] + [tnt]])
+                    tn
+                    # tn.extend([node for node in direction[n] if node not in (
+                    #     direction[tnt] if (tni or atni) else direction[tnt] + tnt)])
 
             elif (p == p2p['N']):
                 tn.extend([node for node in nodes.mKnight[n]
@@ -812,3 +906,4 @@ class ChessY:
                     edge[0] in bn) and (edge[1] in bn)]))
 
         return d
+# %%
