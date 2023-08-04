@@ -1,4 +1,4 @@
-
+#%%
 '''(* ------------------------------------------------------------------------------ *)
 (* lists providing the nodes in each of the cardinal and intercardinal            *)
 (* directions (N,NE,E,SE,S,SW,W,NW), indexed by the node of origin;               *)
@@ -359,3 +359,6 @@ class BlackNodes:
         self.mPawnX_main = mbPawnX
         self.mPawnEP_oppo = mwPawnEP
         self.mPawnEP_main = mbPawnEP
+
+
+# %%

@@ -9,7 +9,7 @@ def readme():
 
 setup(
     name='PyChessY',
-    version='0.0',
+    version='0.0.2',
     author='BennyWang4000',
     author_email='wang.benny0102@gmail.com',
     description='ChessY with Python',

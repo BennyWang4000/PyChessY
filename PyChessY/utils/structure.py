@@ -53,23 +53,32 @@ class Castling:
 
 
 class Position:
-    __slots__ = ('enpassant', 'castling', 'check', 'checkmate', 'places',)
+    __slots__ = ('enpassant', 'castling', 'check',
+                 'checkmate', 'places', 'halfmove', )
 
     def __init__(self,
                  enpassant=0,
                  castling=Castling(),
                  check=False,
                  checkmate=False,
-                 places=[]) -> None:
+                 places=[],
+                 halfmove=False) -> None:
         '''default is empty
+
         params
         ------
+        enpassant, enpassant targets.
+        castling
+        check
+        checkmate
+        places
         '''
         self.enpassant = enpassant
         self.castling = castling
         self.check = check
         self.checkmate = checkmate
         self.places = places
+        self.halfmove = halfmove
 
 
 class Move:
@@ -94,11 +103,25 @@ class Move:
 #           node
 # ----------------------------
 
+f2f = {'a': 1, 'b': 2, 'c': 3, 'd': 4,
+       'e': 5, 'f': 6, 'g': 7, 'h': 8,
+       1: 'a', 2: 'b', 3: 'c', 4: 'd',
+       5: 'e', 6: 'f', 7: 'g', 8: 'h',
+       '0': 0, 0: '0', }
 
-f2f = {'0': 0, 'a': 1, 'b': 2, 'c': 3,
-       'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8}
-r2r = {'0': 0, '1': 1, '2': 2, '3': 3,
-       '4': 4, '5': 5, '6': 6, '7': 7, '8': 8}
+
+r2r = {'1': 1, '2': 2, '3': 3, '4': 4,
+       '5': 5, '6': 6, '7': 7, '8': 8,
+       1: '1', 2: '2', 3: '3', 4: '4',
+       5: '5', 6: '6', 7: '7', 8: '8',
+       '0': 0, 0: '0'}
+
+# f2f = {'0': 0, 'a': 1, 'b': 2, 'c': 3,
+#        'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8}
+
+
+# r2r = {'0': 0, '1': 1, '2': 2, '3': 3,
+#        '4': 4, '5': 5, '6': 6, '7': 7, '8': 8}
 
 
 def file(node):
@@ -141,6 +164,13 @@ p2p = {
     'wB': PieceType.wB, 'wN': PieceType.wN, 'wP': PieceType.wP,
     'bK': PieceType.bK, 'bQ': PieceType.bQ, 'bR': PieceType.bR,
     'bB': PieceType.bB, 'bN': PieceType.bN, 'bP': PieceType.bP
+}
+
+p2fen = {
+    PieceType.wK: 'K', PieceType.wQ: 'Q', PieceType.wR: 'R',
+    PieceType.wB: 'B', PieceType.wN: 'N', PieceType.wP: 'P',
+    PieceType.bK: 'k', PieceType.bQ: 'q', PieceType.bR: 'r',
+    PieceType.bB: 'b', PieceType.bN: 'n', PieceType.bP: 'p'
 }
 
 
