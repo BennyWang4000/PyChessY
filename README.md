@@ -1,7 +1,7 @@
 # ChessYinPython
 
 The whole idea is not mine. \
-If there have any exception or optimization, please feel free to open an issue.
+If there have any exception or optimization, please feel free to open an issue. :)
 
 ## Usage
 
@@ -89,8 +89,9 @@ d = chessy.getDefensiveness(nodes, positions[-1])
 
 ## TODOs
 
-[] rename all members to small camel
-[] finish all analyze method
+- [ ] rename all members to small camel
+- [ ] finish all analyze method
+- [ ] replace using function by parameter to self members
 
 
 ## murmur

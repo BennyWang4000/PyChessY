@@ -187,6 +187,9 @@ class ChessY:
                 moves.append(''.join((mw, mb)))
         return moves
 
+    def getFENfromPosition(self, position: Position, i: int):
+        pass
+
     def getFENfromPositions(self, positions: List[Position]):
         fen_lst = []
         halfmove = 0
