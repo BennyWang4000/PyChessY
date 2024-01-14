@@ -167,7 +167,10 @@ class ChessY:
                     moves.append(mwb)
         return moves
 
-    def getPositionsFromGamePGN(self, moves):
+    # def getPositionsFromGamePGN(self, moves):
+    #     self.getPositionsFromMoves(moves)
+
+    def getPositionsFromMoves(self, moves):
         positions, places, m, w_move, b_move, dep_node, arr_node, passant_move, castling_move, i = [
         ], '', '', [], [], '', '', '', '', ''
 
@@ -227,9 +230,9 @@ class ChessY:
             # get details for white/black move
             w_move = self.parsePGNMove(move[0])
             b_move = self.parsePGNMove(move[1]) if len(move) > 1 else []
-            if (self.isDebug):
-                print('mw', w_move.__dict__)
-                print('mb', b_move.__dict__ if len(move) > 1 else [])
+            # if (self.isDebug):
+            #     print('mw', w_move.__slots__)
+            #     print('mb', b_move.__slots__ if len(move) > 1 else [])
 
             # * process move of white piece
             arr_node, dep_node, passant_move = 0, 0, 0
@@ -512,6 +515,7 @@ class ChessY:
                         (D) State->"Color" : state indicating color of chess pieces
                             State->"Simple" : state indicating whether node is
                                             occupied or not
+                            State->"Piece":
         SameColorTargets - True/False indicating whether edges are included for
                             which both source and target nodes have same color;
                         (D) sameColorTargets->False
@@ -559,10 +563,17 @@ class ChessY:
                 b_Knode = p[0]
 
         # get all potential edges for white/black pieces
-        w_edges = self.getTargetEdgesFromPosition(
-            position, p2p=p2wp, side='w', sameColorTargets=atni)
-        b_edges = self.getTargetEdgesFromPosition(
-            position, p2p=p2bp, side='b', sameColorTargets=atni)
+
+        if state == 'Color' or state == 'Simple':
+            w_edges = self.getTargetEdgesFromPosition(
+                position, p2p=p2wp, side='w', sameColorTargets=atni)
+            b_edges = self.getTargetEdgesFromPosition(
+                position, p2p=p2bp, side='b', sameColorTargets=atni)
+        elif state == 'Piece':
+            w_edges = self.getTargetEdgesFromPosition(
+                position, p2p=p2wp, side='w', sameColorTargets=atni, state='Piece')
+            b_edges = self.getTargetEdgesFromPosition(
+                position, p2p=p2bp, side='b', sameColorTargets=atni, state='Piece')
 
         if self.isDebug:
             print('wedges:\t', w_edges)
@@ -592,7 +603,8 @@ class ChessY:
                     break
             # test/discard edge if white King is in check
             te = self.getTargetEdgesFromPosition(position=Position(enpassant=position.enpassant, castling=position.castling,
-                                                 check=position.check, checkmate=position.checkmate, places=t_pos), p2p=p2bp, side='b', sameColorTargets=atni)
+                                                                   check=position.check, checkmate=position.checkmate, places=t_pos), p2p=p2bp, side='b', sameColorTargets=atni)
+
             if te != []:
                 if t_Knode in [edge[1] for edge in zip(*te)]:
                     w_edges[i] = []
@@ -617,7 +629,8 @@ class ChessY:
                     break
 
             te = self.getTargetEdgesFromPosition(position=Position(enpassant=position.enpassant, castling=position.castling,
-                                                                   check=position.check, checkmate=position.checkmate, places=t_pos), p2p=p2bp, side='w', sameColorTargets=atni)
+                                                                   check=position.check, checkmate=position.checkmate, places=t_pos), p2p=p2bp, side='w', sameColorTargets=atni, state='Piece')
+
             if te != []:
                 if t_Knode in [edge[1] for edge in zip(*te)]:
                     b_edges[i] = []
@@ -626,16 +639,27 @@ class ChessY:
 
         # add edges for queen/kingside castling moves of white King/Rook
         if (not w_check) and ([5, PieceType.wK] in position.places) and ([1, PieceType.wR] in position.places) and (position.castling.wKside) and (len(set([2, 3, 4]).intersection(a_nodes)) == 0) and (len(set([3, 4]).intersection(bt_nodes)) == 0):
-            w_edges += [[5, 3], [1, 4]]
+            if state == 'Color' or state == 'Simple':
+                w_edges += [[5, 3], [1, 4]]
+            elif state == 'Piece':
+                w_edges += [[5, 3, PieceType.wK], [1, 4, PieceType.wR]]
         if (not w_check) and ([5, PieceType.wK] in position.places) and ([8, PieceType.wR] in position.places) and (position.castling.wQside) and (len(set([6, 7]).intersection(a_nodes)) == 0) and (len(set([6, 7]).intersection(bt_nodes)) == 0):
-            w_edges += [[5, 7], [8, 6]]
+            if state == 'Color' or state == 'Simple':
+                w_edges += [[5, 7], [8, 6]]
+            elif state == 'Piece':
+                w_edges += [[5, 7, PieceType.wK], [8, 6, PieceType.wR]]
 
         # add edges for queen/kingside castling moves of black King/Rook
-
         if (not b_check) and ([61, PieceType.bK] in position.places) and ([57, PieceType.bR] in position.places) and (position.castling.bKside) and (len(set([58, 59, 60]).intersection(a_nodes)) == 0) and (len(set([59, 60]).intersection(wt_nodes)) == 0):
-            b_edges += [[61, 59], [57, 60]]
+            if state == 'Color' or state == 'Simple':
+                b_edges += [[61, 59], [57, 60]]
+            elif state == 'Piece':
+                b_edges += [[61, 59, PieceType.bK], [57, 60, PieceType.bR]]
         if (not b_check) and ([61, PieceType.bK] in position.places) and ([64, PieceType.bR] in position.places) and (position.castling.bQside) and (len(set([62, 63]).intersection(a_nodes)) == 0) and (len(set([62, 63]).intersection(wt_nodes)) == 0):
-            b_edges += [[61, 63], [64, 62]]
+            if state == 'Color' or state == 'Simple':
+                b_edges += [[61, 63], [64, 62]]
+            elif state == 'Piece':
+                b_edges += [[61, 63, PieceType.bK], [64, 62, PieceType.bR]]
 
         # set global checkmate variable
         if len(w_edges) == 0:
@@ -644,8 +668,14 @@ class ChessY:
             bCheckmate = True
 
         # format and return master list of weighted edges
-        lst = [[edge[0], edge[1], PieceType._pw] for edge in w_edges] + \
-            [[edge[0], edge[1], PieceType._pb] for edge in b_edges]
+
+        if state == 'Color' or state == 'Simple':
+            lst = [[edge[0], edge[1], PieceType._pw] for edge in w_edges] + \
+                [[edge[0], edge[1], PieceType._pb] for edge in b_edges]
+
+        elif state == 'Piece':
+            lst = w_edges + b_edges
+
         edges = []
         for e in lst:
             if e not in edges:
@@ -657,7 +687,18 @@ class ChessY:
         else:
             return edges
 
-    def getTargetEdgesFromPosition(self, position: Position, p2p, side='w', sameColorTargets=False):
+    def getTargetEdgesFromPosition(self, position: Position, p2p, side='w', sameColorTargets=False, state='Color'):
+        '''
+        parameters
+            position: Position, 
+            p2p: dict,
+            side: string,
+            sameColorTaragets: bool
+            state: string, in Color or Piece
+        '''
+
+        assert state in ['Color', 'Piece']
+
         assert side in ['w', 'b']
         edges = []               # master list of edges to be returned
         main_nodes = []              # list of white-occupied nodes
@@ -744,8 +785,12 @@ class ChessY:
 
             # generate edges and add to master list
 
-            for e in tn:
-                edges.append([n, e])
+            if state == 'Color':
+                for e in tn:
+                    edges.append([n, e])
+            elif state == 'Piece':
+                for e in tn:
+                    edges.append([n, e, p])
 
         return edges
 
