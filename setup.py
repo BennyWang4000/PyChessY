@@ -9,7 +9,7 @@ def readme():
 
 setup(
     name='PyChessY',
-    version='0.0',
+    version='1.0',
     author='BennyWang4000',
     author_email='wang.benny0102@gmail.com',
     description='ChessY with Python',
@@ -17,7 +17,7 @@ setup(
     long_description_content_type='text/markdown',
     packages=find_packages(include=['PyChessY', 'PyChessY.*']),
     keywords='chess',
-    url='https://github.com/lihua/myapp',
+    url='https://github.com/BennyWang4000/PyChessY',
     classifiers=[
             'Development Status :: 5 - Production/Stable',
             'License :: OSI Approved :: Apache Software License',

@@ -13,11 +13,11 @@ moves = chessY.getMovesFromGameGPN(pgn4)
 # %%
 display(moves)
 # %%
-positions = chessY.getPositionsFromGamePGN(moves)
+positions = chessY.getPositionsFromMoves(moves)
 # %%
 display(positions[-1].places)
 # %%
-edges = chessY.getEdgesFromPosition(positions[-1])
+edges = chessY.getEdgesFromPosition(positions[-1], state='Piece')
 # %%
 display(edges)
 # %%
