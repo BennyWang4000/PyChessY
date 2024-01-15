@@ -64,6 +64,13 @@ class TestBoard(unittest.TestCase):
             0, 0, 0, 0, 0, 0, 0, 0,]
         self.assertEquals(ans, nodes)
 
+    def test_fen(self):
+        chessy = ChessY()
+        moves = chessy.getMovesFromGameGPN(self.pgn4)
+        positions = chessy.getPositionsFromMoves(moves)
+        for position in positions:
+            chessy.getFENfromPositions(positions)
+
 
 if __name__ == '__main__':
     unittest.main()
