@@ -74,6 +74,7 @@ class ChessY:
             False,
             "",
         )
+        df, dr = "", ""
 
         if m == "O-O":
             ca, m = "KS", ""
@@ -112,10 +113,10 @@ class ChessY:
             p = "P"
 
         if m != "" and m[0] in ["a", "b", "c", "d", "e", "f", "g", "h"]:
-            f = m[0]
+            df = m[0]
             m = m[1:]
-        elif m != "" and m[0] in ["1", "2", "3", "4", "5", "6", "7", "8"]:
-            r = m[0]
+        if m != "" and m[0] in ["1", "2", "3", "4", "5", "6", "7", "8"]:
+            dr = m[0]
             m = m[1:]
 
         if m != "" and m[0] in ["x"]:
@@ -123,7 +124,7 @@ class ChessY:
             m = m[1:]
 
         if m != "" and m[0] in ["a", "b", "c", "d", "e", "f", "g", "h"]:
-            da = f if f != "" else r
+            da = dr if dr != "" else df
             f = m[0]
             m = m[1:]
 
@@ -149,8 +150,8 @@ class ChessY:
 
         return Move(
             piece=p,
-            file=f,
-            rank=r,
+            file=df if f == "" else f,
+            rank=dr if r == "" else r,
             capture=c,
             disambiguation=da,
             castling=ca,
@@ -289,7 +290,7 @@ class ChessY:
                 if len(andl) > 1 and ada in ["1", "2", "3", "4", "5", "6", "7", "8"]:
                     for a in andl:
                         if self.isDebug:
-                            print(f2f[ada], a, file(a))
+                            print(r2r[ada], a, rank(a))
                         if r2r[ada] == rank(a):
                             return a
                 if len(andl) > 1 and ada == "":
@@ -372,8 +373,17 @@ class ChessY:
                 w_move.capture
                 and w_move.piece == "P"
                 and rank(arr_node) == 6
-                and not any(pos[0] == arr_node for pos in places)
+                and any(place[0] == arr_node for place in places)
             ):
+                if self.isDebug:
+                    print(
+                        "white pawn enpassant:",
+                        w_move.piece,
+                        ";",
+                        rank(arr_node),
+                        ";",
+                        any(place[0] == arr_node for place in places),
+                    )
                 w_move.enpassant = True
             else:
                 w_move.enpassant = False
@@ -583,8 +593,17 @@ class ChessY:
                 b_move.capture
                 and b_move.piece == "P"
                 and rank(arr_node) == 3
-                and not any(pos[0] == arr_node for pos in places)
+                and any(place[0] == arr_node for place in places)
             ):
+                if self.isDebug:
+                    print(
+                        "black pawn enpassant:",
+                        b_move.piece,
+                        ";",
+                        rank(arr_node),
+                        ";",
+                        any(place[0] == arr_node for place in places),
+                    )
                 b_move.enpassant = True
             else:
                 b_move.enpassant = False
@@ -709,7 +728,7 @@ class ChessY:
             # handle promotion
             if b_move.promotion != "":
                 places.remove([arr_node, PieceType.bP])
-                places.append([arr_node, p2wp[b_move.promotion]])
+                places.append([arr_node, p2bp[b_move.promotion]])
 
             # append position to positions list
             positions.append(
