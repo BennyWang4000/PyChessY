@@ -1,7 +1,7 @@
 from .utils.structure import *
 from .utils.nodes import Nodes
-from typing import List
 from math import ceil
+import itertools
 
 
 class ChessY:
@@ -20,14 +20,14 @@ class ChessY:
         checkmate=False,
     ) -> Position:
         pos = Position(
-            enpassant=node(f2f[str(enPassant)], r2r[str(enPassant)]),
+            enpassant=filerank2node(f2f[str(enPassant)], r2r[str(enPassant)]),
             castling=castling,
             check=check,
             checkmate=checkmate,
             places=[],
         )
         for ps in p:
-            pos.places.append([node(f2f[ps[2]], r2r[ps[3]]), p2p[ps[:2]]])
+            pos.places.append([filerank2node(f2f[ps[2]], r2r[ps[3]]), p2p[ps[:2]]])
         return pos
 
     def pgn_clean(self, pgn: str):
@@ -197,7 +197,7 @@ class ChessY:
     def getFENfromPosition(self, position: Position):
         pass
 
-    def getFENfromPositions(self, positions: List[Position]):
+    def getFENfromPositions(self, positions: list[Position]):
         fen_lst = []
         halfmove = 0
         for i, position in enumerate(positions):
@@ -237,7 +237,8 @@ class ChessY:
 
             if position.enpassant != 0:
                 fen.append(
-                    f2f[file(position.enpassant)] + r2r[rank(position.enpassant)]
+                    f2f[node2file(position.enpassant)]
+                    + r2r[node2rank(position.enpassant)]
                 )
             else:
                 fen.append("-")
@@ -252,6 +253,44 @@ class ChessY:
 
             fen_lst.append(" ".join(fen))
         return fen_lst
+
+    def _getDepartureNode(self, ana, andl, ap, ada, ac, ar, aep, apos):
+        if self.isDebug:
+            print(ana, ";", andl, ";", ap, ";", ada, ";", ac, ";", ar, ";", aep)
+        if ap not in [PieceType.wP, PieceType.bP]:
+            if len(andl) == 1:
+                return andl[0]
+            if len(andl) > 1 and ada in ["a", "b", "c", "d", "e", "f", "g", "h"]:
+                for a in andl:
+                    if self.isDebug:
+                        print(f2f[ada], a, node2file(a))
+                    if f2f[ada] == node2file(a):
+                        return a
+            if len(andl) > 1 and ada in ["1", "2", "3", "4", "5", "6", "7", "8"]:
+                for a in andl:
+                    if self.isDebug:
+                        print(r2r[ada], a, node2rank(a))
+                    if r2r[ada] == node2rank(a):
+                        return a
+            if len(andl) > 1 and ada == "":
+                edges = self.getEdgesFromPosition(apos, sameColorTargets=False)
+                for edge in edges:
+                    if edge[0] in andl and edge[1] == ana:
+                        return edge[0]
+
+        else:
+            # handle pawns
+            if not ac and not aep:
+                if ap == PieceType.wP:
+                    return ana - 16 if ar else ana - 8
+                else:
+                    return ana + 16 if ar else ana + 8
+            if ac:
+                if ap == PieceType.wP:
+                    return filerank2node(f2f[ada], node2rank(ana) - 1)
+                else:
+                    return filerank2node(f2f[ada], node2rank(ana) + 1)
+        return 0
 
     def getPositionsFromMoves(self, moves):
         (
@@ -274,44 +313,6 @@ class ChessY:
         en passant move (ac/ar/aep; only used for Pawn disambiguation) and the
         current position (apos)   '
         """
-
-        def getDepartureNode(ana, andl, ap, ada, ac, ar, aep, apos):
-            if self.isDebug:
-                print(ana, ";", andl, ";", ap, ";", ada, ";", ac, ";", ar, ";", aep)
-            if ap not in [PieceType.wP, PieceType.bP]:
-                if len(andl) == 1:
-                    return andl[0]
-                if len(andl) > 1 and ada in ["a", "b", "c", "d", "e", "f", "g", "h"]:
-                    for a in andl:
-                        if self.isDebug:
-                            print(f2f[ada], a, file(a))
-                        if f2f[ada] == file(a):
-                            return a
-                if len(andl) > 1 and ada in ["1", "2", "3", "4", "5", "6", "7", "8"]:
-                    for a in andl:
-                        if self.isDebug:
-                            print(r2r[ada], a, rank(a))
-                        if r2r[ada] == rank(a):
-                            return a
-                if len(andl) > 1 and ada == "":
-                    edges = self.getEdgesFromPosition(apos, sameColorTargets=False)
-                    for edge in edges:
-                        if edge[0] in andl and edge[1] == ana:
-                            return edge[0]
-
-            else:
-                # handle pawns
-                if not ac and not aep:
-                    if ap == PieceType.wP:
-                        return ana - 16 if ar else ana - 8
-                    else:
-                        return ana + 16 if ar else ana + 8
-                if ac:
-                    if ap == PieceType.wP:
-                        return node(f2f[ada], rank(ana) - 1)
-                    else:
-                        return node(f2f[ada], rank(ana) + 1)
-            return 0
 
         positions = [position_start]
         places = position_start.places
@@ -353,7 +354,7 @@ class ChessY:
 
             # get node of arrival
             if w_move.file != "" and w_move.rank != "":
-                arr_node = node(f2f[w_move.file], r2r[w_move.rank])
+                arr_node = filerank2node(f2f[w_move.file], r2r[w_move.rank])
                 if self.isDebug:
                     print("na", arr_node)
 
@@ -372,7 +373,7 @@ class ChessY:
             if (
                 w_move.capture
                 and w_move.piece == "P"
-                and rank(arr_node) == 6
+                and node2rank(arr_node) == 6
                 and any(place[0] == arr_node for place in places)
             ):
                 if self.isDebug:
@@ -380,7 +381,7 @@ class ChessY:
                         "white pawn enpassant:",
                         w_move.piece,
                         ";",
-                        rank(arr_node),
+                        node2rank(arr_node),
                         ";",
                         any(place[0] == arr_node for place in places),
                     )
@@ -410,7 +411,7 @@ class ChessY:
 
             elif w_move.piece == "Q":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wQ]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.wQ,
@@ -426,7 +427,7 @@ class ChessY:
             elif w_move.piece == "R":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wR]
 
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.wR,
@@ -449,7 +450,7 @@ class ChessY:
 
             elif w_move.piece == "B":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wB]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.wB,
@@ -463,7 +464,7 @@ class ChessY:
                 places.append([arr_node, PieceType.wB])
             elif w_move.piece == "N":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wN]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.wN,
@@ -478,33 +479,16 @@ class ChessY:
 
             elif w_move.piece == "P":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.wP]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.wP,
                     w_move.disambiguation,
                     w_move.capture,
-                    True
-                    if (
-                        (rank(arr_node) == 4)
-                        and (
-                            not any(
-                                piece[0] == arr_node - 8
-                                for piece in positions[-1].places
-                            )
-                        )
-                    )
-                    else False,
-                    w_move.enpassant,
-                    positions[-1],
-                )
-                # len([True for an in andl if rank(na) == 4 and an == (na - 8)]) == 0
-                if self.isDebug:
-                    print(
-                        "ar:\t",
+                    (
                         True
                         if (
-                            (rank(arr_node) == 4)
+                            (node2rank(arr_node) == 4)
                             and (
                                 not any(
                                     piece[0] == arr_node - 8
@@ -512,11 +496,32 @@ class ChessY:
                                 )
                             )
                         )
-                        else False,
+                        else False
+                    ),
+                    w_move.enpassant,
+                    positions[-1],
+                )
+                # len([True for an in andl if node2rank(na) == 4 and an == (na - 8)]) == 0
+                if self.isDebug:
+                    print(
+                        "ar:\t",
+                        (
+                            True
+                            if (
+                                (node2rank(arr_node) == 4)
+                                and (
+                                    not any(
+                                        piece[0] == arr_node - 8
+                                        for piece in positions[-1].places
+                                    )
+                                )
+                            )
+                            else False
+                        ),
                     )
                 places = list(filter(lambda x: x != [dep_node, PieceType.wP], places))
                 places.append([arr_node, PieceType.wP])
-                if rank(dep_node) == 2 and rank(arr_node) == 4:
+                if node2rank(dep_node) == 2 and node2rank(arr_node) == 4:
                     # TODO minus one or not
                     passant_move = enPassantXw[arr_node - 1]
 
@@ -573,7 +578,7 @@ class ChessY:
 
             # get node of arrival
             if b_move.file != "" and b_move.rank != "":
-                arr_node = node(f2f[b_move.file], r2r[b_move.rank])
+                arr_node = filerank2node(f2f[b_move.file], r2r[b_move.rank])
                 if self.isDebug:
                     print("na", arr_node)
 
@@ -592,7 +597,7 @@ class ChessY:
             if (
                 b_move.capture
                 and b_move.piece == "P"
-                and rank(arr_node) == 3
+                and node2rank(arr_node) == 3
                 and any(place[0] == arr_node for place in places)
             ):
                 if self.isDebug:
@@ -600,7 +605,7 @@ class ChessY:
                         "black pawn enpassant:",
                         b_move.piece,
                         ";",
-                        rank(arr_node),
+                        node2rank(arr_node),
                         ";",
                         any(place[0] == arr_node for place in places),
                     )
@@ -630,7 +635,7 @@ class ChessY:
                 castling_move.bKside, castling_move.bQside = False, False
             elif b_move.piece == "Q":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bQ]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.bQ,
@@ -645,7 +650,7 @@ class ChessY:
                 places.append([arr_node, PieceType.bQ])
             elif b_move.piece == "R":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bR]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.bR,
@@ -665,7 +670,7 @@ class ChessY:
                         castling_move.bQside = False
             elif b_move.piece == "B":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bB]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.bB,
@@ -680,7 +685,7 @@ class ChessY:
                 places.append([arr_node, PieceType.bB])
             elif b_move.piece == "N":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bN]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.bN,
@@ -695,29 +700,31 @@ class ChessY:
 
             elif b_move.piece == "P":
                 andl = [pos[0] for pos in places if pos[1] == PieceType.bP]
-                dep_node = getDepartureNode(
+                dep_node = self._getDepartureNode(
                     arr_node,
                     andl,
                     PieceType.bP,
                     b_move.disambiguation,
                     b_move.capture,
-                    True
-                    if (
-                        (rank(arr_node) == 5)
-                        and (
-                            not any(
-                                piece[0] == arr_node + 8
-                                for piece in positions[-1].places
+                    (
+                        True
+                        if (
+                            (node2rank(arr_node) == 5)
+                            and (
+                                not any(
+                                    piece[0] == arr_node + 8
+                                    for piece in positions[-1].places
+                                )
                             )
                         )
-                    )
-                    else False,
+                        else False
+                    ),
                     b_move.enpassant,
                     positions[-1],
                 )
                 places = list(filter(lambda x: x != [dep_node, PieceType.bP], places))
                 places.append([arr_node, PieceType.bP])
-                if rank(dep_node) == 7 and rank(arr_node) == 5:
+                if node2rank(dep_node) == 7 and node2rank(arr_node) == 5:
                     # TODO minus one or not
                     passant_move = enPassantXw[arr_node - 1]
 
@@ -827,7 +834,6 @@ class ChessY:
         if self.isDebug:
             print("wedges:\t", w_edges)
             print("bedges:\t", b_edges)
-
         # get all nodes targeted by white/black pieces
         wt_nodes = [edge[1] for edge in w_edges] if w_edges else []
         bt_nodes = [edge[1] for edge in b_edges] if b_edges else []
@@ -987,20 +993,22 @@ class ChessY:
         elif state == "Piece":
             lst = w_edges + b_edges
 
-        edges = []
-        for e in lst:
-            if e not in edges:
-                edges.append(e)
-            # print(edges)
+        edges = [edge for edge in lst if edge not in edges]
+        # edges = []
+        # for e in lst:
+        #     if e not in edges:
+        #         edges.append(e)
+        # print(edges)
 
         if state == "Simple":
             return [[abs(edge[1]) for edge in edges]]
         else:
             return edges
 
+    # @profile
     def getTargetEdgesFromPosition(
         self, position: Position, p2p, side="w", sameColorTargets=False, state="Color"
-    ):
+    ) -> list:
         """
         parameters
             position: Position,
@@ -1014,9 +1022,9 @@ class ChessY:
 
         assert side in ["w", "b"]
         edges = []  # master list of edges to be returned
-        main_nodes = []  # list of white-occupied nodes
-        oppo_nodes = []  # list of black-occupied nodes
-        a_nodes = []  # list of all occupied nodes
+        # main_nodes = []  # list of white-occupied nodes
+        # oppo_nodes = []  # list of black-occupied nodes
+        # a_nodes = []  # list of all occupied nodes
         n = ""  # node being processed
         p = ""  # piece on node being processed
         f, r = "", ""  # file/rank of node being processed
@@ -1032,109 +1040,96 @@ class ChessY:
         # wn -> ma_n, main nodes
         # bn -> op_n, opposite nodes
 
-        if len(position.places) <= 0:
-            return Position
+        if not position.places:
+            return []
 
-        # get white/black/all occupied nodes
-        for pos in position.places:
-            if pos[1] in w_pieces:
-                if side == "w":
-                    main_nodes.append(pos[0])
-                elif side == "b":
-                    oppo_nodes.append(pos[0])
-            elif pos[1] in b_pieces:
-                if side == "b":
-                    main_nodes.append(pos[0])
-                elif side == "w":
-                    oppo_nodes.append(pos[0])
+        main_nodes = position.places
+        itertools.filterfalse(
+            lambda place: (side == "w" and place[1] in w_pieces)
+            or (side == "b" and place[1] in b_pieces),
+            itertools.starmap(lambda place: place[0], position.places),
+        )
+        oppo_nodes = position.places
+        itertools.filterfalse(
+            lambda place: (side == "w" and place[1] in b_pieces)
+            or (side == "b" and place[1] in w_pieces),
+            itertools.starmap(lambda place: place[0], position.places),
+        )
 
-        a_nodes.extend(main_nodes)
-        a_nodes.extend(oppo_nodes)
+        a_nodes = main_nodes + oppo_nodes
 
         for pos in position.places:
             n = pos[0]
             p = pos[1]
-            f = file(n)
-            r = rank(n)
+            f = node2file(n)
+            r = node2rank(n)
             tn = []
 
             if p == p2p["K"]:
                 # add target nodes for standard moves of the black King, modulo target nodes occupied with black pieces
-                tn.extend(
-                    [node for node in nodes.mKing[n] if node not in main_nodes]
-                    if not atni
-                    else nodes.mKing[n]
-                )
+                tn = nodes.mKing[n]
+                if atni:
+                    itertools.filterfalse(lambda node: node not in main_nodes, tn)
+
             elif p in [p2p["Q"], p2p["R"], p2p["B"]]:
-                for direction in (
+                directions = (
                     nodes.mQueen
                     if p == p2p["Q"]
                     else (nodes.mRook if p == p2p["R"] else nodes.mBishop)
-                ):
+                )
+                for direction in directions:
                     tnt, tni = 0, True
                     for tnt in direction[n]:
                         if tnt in main_nodes:
                             tni = False
                             break
-                        elif tnt in oppo_nodes:
+                        else:
                             tni = True
                             break
 
+                    tn = direction[n]
                     if tni or atni:
-                        tn.extend(
-                            [
-                                node
-                                for node in direction[n]
-                                if node not in direction[tnt]
-                            ]
+                        itertools.filterfalse(
+                            lambda node: node not in direction[tnt], tn
                         )
                     else:
-                        tn.extend(
-                            [
-                                node
-                                for node in direction[n]
-                                if node not in direction[tnt] + [tnt]
-                            ]
+                        itertools.filterfalse(
+                            lambda node: node not in direction[tnt] and node != tnt, tn
                         )
-                    tn
-                    # tn.extend([node for node in direction[n] if node not in (
-                    #     direction[tnt] if (tni or atni) else direction[tnt] + tnt)])
 
             elif p == p2p["N"]:
-                tn.extend(
-                    [node for node in nodes.mKnight[n] if node not in main_nodes]
-                    if not atni
-                    else nodes.mKnight[n]
-                )
+                tn = nodes.mKnight[n]
+                if atni:
+                    itertools.filterfalse(lambda node: node not in main_nodes, tn)
+
             elif p == p2p["P"]:
-                tn.extend([node for node in nodes.mPawn_main[n] if node not in a_nodes])
+                tn = nodes.mPawn_main[n]
+                itertools.filterfalse(lambda node: node not in a_nodes, tn)
                 if r == 2 and len(tn) != 0:
-                    tn.extend(
-                        [node for node in nodes.mPawnR_main[n] if node not in a_nodes]
-                    )
+                    t_tn = nodes.mPawnR_main[n]
+                    itertools.filterfalse(lambda node: node not in a_nodes, t_tn)
+                    tn = itertools.chain(t_tn, tn)
                 if not atni:
-                    tn.extend(
-                        [value for value in nodes.mPawnX_main[n] if value in oppo_nodes]
-                    )
+                    t_tn = nodes.mPawnX_main[n]
+                    itertools.filterfalse(lambda node: node in oppo_nodes, t_tn)
+                    tn = itertools.chain(t_tn, tn)
                 else:
-                    tn.extend(
-                        [value for value in nodes.mPawnX_main[n] if value in a_nodes]
-                    )
+                    t_tn = nodes.mPawnX_main[n]
+                    itertools.filterfalse(lambda node: node not in a_nodes, t_tn)
+                    tn = itertools.chain(t_tn, tn)
                 if r == 5 and ep != 0:
-                    tn.extend(
-                        [value for value in nodes.mPawnEP_main[n] if value in [ep]]
-                    )
+                    t_tn = nodes.mPawnEP_main[n]
+                    itertools.filterfalse(lambda node: node != ep, t_tn)
+                    tn = itertools.chain(t_tn, tn)
 
             # generate edges and add to master list
 
             if state == "Color":
-                for e in tn:
-                    edges.append([n, e])
-            elif state == "Piece":
-                for e in tn:
-                    edges.append([n, e, p])
-
-        return edges
+                edges = itertools.chain(edges, itertools.product([n], tn))
+            # elif state == "Piece":
+            else:
+                edges = itertools.chain(edges, itertools.product([n], tn, [p]))
+        return list(edges)
 
     def getNodesFromPosition(self, position: Position, state="Color"):
         assert state in ["Color", "Piece", "Simple"]

@@ -198,7 +198,7 @@ r2r = {
 #        '4': 4, '5': 5, '6': 6, '7': 7, '8': 8}
 
 
-def file(node):
+def node2file(node):
     """node -> file"""
     if node < 1 or node > 64:
         return 0
@@ -206,7 +206,7 @@ def file(node):
         return node - (8 * floor((node - 1) / 8))
 
 
-def rank(node):
+def node2rank(node):
     """node -> rank"""
     if node < 1 or node > 64:
         return 0
@@ -214,7 +214,7 @@ def rank(node):
         return floor((node - 1) / 8 + 1)
 
 
-def node(file, rank):
+def filerank2node(file, rank):
     """(file, rank) -> node"""
     if file < 1 or file > 8 or rank < 1 or rank > 8:
         return 0
